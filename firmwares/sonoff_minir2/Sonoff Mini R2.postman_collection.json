@@ -1,0 +1,123 @@
+{
+	"info": {
+		"_postman_id": "b3bbf0f4-fde6-4cc4-b72c-0501e5703078",
+		"name": "Sonoff Mini R2",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "info",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"data\": {}}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{IP}}:8081/zeroconf/info",
+					"protocol": "http",
+					"host": [
+						"{{IP}}"
+					],
+					"port": "8081",
+					"path": [
+						"zeroconf",
+						"info"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "ota_unlock",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"data\": {}}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{IP}}:8081/zeroconf/ota_unlock",
+					"protocol": "http",
+					"host": [
+						"{{IP}}"
+					],
+					"port": "8081",
+					"path": [
+						"zeroconf",
+						"ota_unlock"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "ota_flash",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"deviceid\": \"\",\n    \"data\": {\n        \"downloadUrl\": \"http://sonoff-ota.aelius.com/tasmota-latest-lite.bin\",\n        \"sha256sum\": \"5c1aecd2a19a49ae1bec0c863f69b83ef40812145c8392eebe5fd2677a6250cc\"\n    }\n}\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{IP}}:8081/zeroconf/ota_flash",
+					"protocol": "http",
+					"host": [
+						"{{IP}}"
+					],
+					"port": "8081",
+					"path": [
+						"zeroconf",
+						"ota_flash"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "IP",
+			"value": "192.168.10.128",
+			"type": "default"
+		}
+	]
+}
