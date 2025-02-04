@@ -1,0 +1,146 @@
+########################
+# Device Setup
+########################
+
+substitutions:
+  device_id: blinds1
+  device_name: Blinds 1
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+########################
+# Hardware Setup
+########################
+
+status_led:
+  pin:
+    number: GPIO2
+
+sensor:
+
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # Extra sensor for WiFi signal
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+
+########################
+# Cover
+########################
+
+switch:
+  - platform: gpio
+    pin: GPIO32
+    name: "Up"
+    id: id_up
+    restore_mode: ALWAYS_OFF
+
+    on_turn_on:
+    - delay: 1s
+    - switch.turn_off: id_up
+
+  - platform: gpio
+    pin: GPIO33
+    name: "Stop"
+    id: id_stop
+    restore_mode: ALWAYS_OFF
+
+    on_turn_on:
+    - delay: 1s
+    - switch.turn_off: id_stop
+
+  - platform: gpio
+    pin: GPIO25
+    name: "Down"
+    id: id_down
+    restore_mode: ALWAYS_OFF
+
+    on_turn_on:
+    - delay: 1s
+    - switch.turn_off: id_down
+
+  - platform: gpio
+    pin: GPIO26
+    name: "Left"
+    id: id_left
+    restore_mode: ALWAYS_OFF
+
+    on_turn_on:
+    - delay: 1s
+    - switch.turn_off: id_left
+
+  - platform: gpio
+    pin: GPIO27
+    name: "Right"
+    id: id_right
+    restore_mode: ALWAYS_OFF
+
+    on_turn_on:
+    - delay: 1s
+    - switch.turn_off: id_right
+
+cover:
+  - platform: time_based
+    name: "Blinds"
+    id: id_blinds
+
+    has_built_in_endstop: true
+    manual_control: true
+    assumed_state: true
+
+
+    open_action:
+      - switch.turn_on: id_up
+    open_duration: 41s
+
+    close_action:
+      - switch.turn_on: id_down
+    close_duration: 39s
+
+    stop_action:
+      - switch.turn_on: id_stop

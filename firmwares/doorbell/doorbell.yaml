@@ -1,0 +1,182 @@
+########################
+# Device Setup
+########################
+
+substitutions:
+  device_id: doorbell-1
+  device_name: Doorbell 1
+  ringtone_boot: "we-boot:d=4,o=6,b=40:32g5,32g5,32g5,16d#5,16c5"
+  ringtone_scan: "we-scan:d=4,o=5,b=112:p,8b,8g,d6,8d6,8b,16a,g"
+  ringtone_ring: "we-ring:d=4,o=4,b=125:8g#5,16f5,16g#5,a#5,8p"
+  sound_boot: "https://home.hq.kuralabs.io/local/sounds/boot.wav"
+  sound_scan: "https://home.hq.kuralabs.io/local/sounds/scan.wav"
+  sound_ring: "https://home.hq.kuralabs.io/local/sounds/ring.wav"
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+
+  # Notify on API connection
+  on_boot:
+    priority: -10
+    then:
+      - wait_until:
+          api.connected:
+      - logger.log: API is connected!
+      #- rtttl.play: "${ringtone_boot}"
+      - media_player.play_media: "${sound_boot}"
+      - light.turn_on:
+          id: user_led
+          brightness: 100%
+          red: 0%
+          green: 0%
+          blue: 100%
+          flash_length: 500ms
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  services:
+
+  # Testing service to listen to ringtones
+  - service: play_rtttl
+    variables:
+      song_str: string
+    then:
+    - rtttl.play: !lambda 'return song_str;'
+
+  - service: play_sound
+    variables:
+      song_str: string
+    then:
+    - media_player.play_media: !lambda 'return song_str;'
+
+ota:
+  password: ""
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+sensor:
+
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # Extra sensor for WiFi signal
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+########################
+# Hardware Setup
+########################
+
+# Enable board status LED
+status_led:
+  pin:
+    number: GPIO2
+
+# Configure the NFC reader
+i2c:
+  scan: False
+  frequency: 400kHz
+
+pn532_i2c:
+  id: pn532_board
+
+  on_tag:
+    then:
+    - light.turn_on:
+        id: user_led
+        brightness: 100%
+        red: 0%
+        green: 100%
+        blue: 0%
+        flash_length: 1s
+    - homeassistant.tag_scanned: !lambda |-
+        return "${device_id}-" + x;
+    - media_player.play_media: "${sound_scan}"
+    #- rtttl.play: "${ringtone_scan}"
+
+  on_tag_removed:
+    then:
+    - homeassistant.event:
+        event: esphome.tag_removed
+
+# Configure the Speaker
+i2s_audio:
+  id: i2s_dac
+  i2s_lrclk_pin: GPIO26
+  i2s_bclk_pin: GPIO27
+
+media_player:
+  - platform: i2s_audio
+    name: Media Player
+    dac_type: external
+    i2s_dout_pin: GPIO25
+    mode: mono
+    i2s_audio_id: i2s_dac
+
+# Configure user LED
+light:
+  - platform: neopixelbus
+    variant: WS2812
+    pin: GPIO19
+    num_leds: 1
+    flash_transition_length: 1s
+    type: GRB
+    id: user_led
+    name: "LED"
+    restore_mode: ALWAYS_OFF
+
+# Configure the user button
+binary_sensor:
+
+  - platform: gpio
+    pin:
+      number: GPIO18
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "Button"
+    on_press:
+      then:
+        - media_player.play_media: "${sound_ring}"
+        #- rtttl.play: "${ringtone_ring}"
+
+# Configure the buzzer
+output:
+  - platform: ledc
+    pin: GPIO5
+    id: buzzer
+
+rtttl:
+  output: buzzer

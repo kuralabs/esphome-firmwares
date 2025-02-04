@@ -1,0 +1,110 @@
+########################
+# Device Setup
+########################
+
+substitutions:
+  device_id: rfbridge-1
+  device_name: RF Bridge 1
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+  includes:
+    - cc1101.h
+  libraries:
+    - SPI
+    - "SmartRC-CC1101-Driver-Lib"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+  power_save_mode: HIGH
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+sensor:
+
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # Extra sensor for WiFi signal
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+########################
+# Hardware Setup
+########################
+
+  - platform: custom
+    lambda: |-
+      auto my_sensor = new CC1101(
+        GPIO_NUM_18, // SCK
+        GPIO_NUM_19, // MISO
+        GPIO_NUM_23, // MOSI
+        GPIO_NUM_21, // CSN
+        GPIO_NUM_22, // GDO0
+        200,         // Bandwidth in kHz
+        433.92,      // Frequency in mHz
+        false,       // Disable verbose RSSI
+        0            // Set modulation mode:
+                     // 0 = 2-FSK, 1 = GFSK, 2 = ASK/OOK, 3 = 4-FSK, 4 = MSK.
+      );
+      App.register_component(my_sensor);
+      return {my_sensor};
+    sensors:
+      id: transceiver_1
+      internal: true
+
+remote_transmitter:
+  - pin: GPIO22 # This is GDO0
+    carrier_duty_percent: 100%
+
+remote_receiver:
+  - pin: GPIO22 # This is GDO0
+    dump:
+      - raw
+
+button:
+  - platform: template
+    name: Test
+    on_press:
+      - lambda: get_cc1101(transceiver_1).beginTransmission();
+      - remote_transmitter.transmit_raw:
+          code: [-76, 4056, -25, 1603, -25, 899, -25, 350, -100, 3281, -101, 1302, -126, 101, -25, 3256, -75, 1253, -76, 1680, -75, 551, -50, 1600, -25, 726, -75, 1427, -150, 50, -75, 251, -75, 76, -75, 175, -50, 301, -50, 126, -175, 276, -100, 100, -50, 175, -75, 225, -302, 75, -175, 325, -151, 351, -75, 326, -100, 126, -175, 100, -75, 650, -50, 200, -151, 225, -125, 126, -125, 151, -75, 526, -125, 375, -50, 75, -150, 100, -626, 125, -5332, 100, -876, 75, -375, 100, -50, 76, -75, 275, -75, 602, -25, 125, -150, 450, -100, 351, -299, 277, -175, 50, -150, 301, -200, 75, -100, 551, -75, 100, -75, 300, -50, 175, -50, 25, -226, 201, -300, 175, -125, 275, -151, 175, -150, 175, -25, 275, -125, 100, -150, 51, -150, 325, -150, 50, -125, 75, -75, 451, -50, 25, -25, 25, -150, 50, -75, 176, -51, 250, -125, 375, -227, 327, -25, 100, -50, 150, -150, 176, -125, 102, -125, 249, -75, 125, -175, 126, -50, 100, -150, 100, -50, 150, -101, 125, -200, 75, -175, 151, -25, 150, -125, 200, -76, 226, -225, 125, -75, 201, -25, 100, -299, 701, -125, 150, -175, 75, -76, 225, -50, 100, -25, 525, -50, 375, -176, 125, -25, 100, -225, 25, -100, 225, -100, 251, -25, 250, -50, 75, -225, 227, -126, 125, -225, 175, -100, 175, -101, 150, -150, 75, -75, 150, -100, 350, -100, 75, -201, 25, -75, 150, -25, 25, -75, 150, -50, 75, -601, 51, -250, 202, -125, 75, -376, 300, -250, 800, -25, 350, -25, 301, -75, 75, -300, 125, -176, 225, -25, 25, -275, 351, -125, 50, -125, 225, -227, 175, -251, 250, -226, 150, -101, 225, -226, 75, -100, 100, -25, 301, -200, 125, -2329, 125, -775, 100, -1351, 301, -75, 175, -50, 225, -75, 100, -100, 176, -151, 150, -100, 75, -100, 150, -126, 50, -75, 250, -175, 175, -99, 125, -525, 125, -100, 226, -75, 50, -100, 100, -100, 125, -325, 527, -75, 226, -100, 177, -100, 100, -150, 75, -100, 76, -225, 25, -50, 376, -125, 602, -125, 425, -225, 100, -75, 75, -100, 176, -100, 275, -200, 425, -100, 151, -75, 400, -100, 150, -25, 350, -451, 50, -125, 250, -252, 175, -526, 201, -75, 100, -100, 175, -50, 352, -50, 75]
+      - lambda: get_cc1101(transceiver_1).endTransmission();
