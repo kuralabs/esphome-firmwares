@@ -1,0 +1,98 @@
+########################
+# Device Setup
+########################
+
+substitutions:
+  device_id: nrf24-rx
+  device_name: NRF24 Receiver
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+########################
+# Software Stack Setup
+########################
+
+# Enable Logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  - password: ""
+    platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+# Define Binary Sensors for Button Presses
+binary_sensor:
+  - platform: template
+    id: gate_button_1
+    name: "Gate Button 1"
+
+  - platform: template
+    id: gate_button_2
+    name: "Gate Button 2"
+
+  - platform: template
+    id: gate_button_3
+    name: "Gate Button 3"
+
+########################
+# Hardware Setup
+########################
+
+# Enable board status LED
+status_led:
+  pin:
+    number: GPIO2
+
+# SPI Bus Configuration
+spi:
+  clk_pin: GPIO14  # SCK
+  mosi_pin: GPIO13 # MOSI
+  miso_pin: GPIO12 # MISO
+
+# Load NRF24 Component with User-Defined Callback
+nrf24rx:
+  ce_pin: GPIO4
+  csn_pin: GPIO15
+  irq_pin: GPIO27
+  encryption_key: !secret nrf24_encryption_key
+  on_receive:
+    then:
+      - lambda: |-
+          if (message == "button_1") {
+              id(gate_button_1).publish_state(true);
+          } else if (message == "button_2") {
+              id(gate_button_2).publish_state(true);
+          } else if (message == "button_3") {
+              id(gate_button_3).publish_state(true);
+          }
