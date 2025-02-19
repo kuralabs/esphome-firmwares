@@ -5,10 +5,21 @@
 substitutions:
   device_id: nrf24-rx
   device_name: NRF24 Receiver
+  state_bounce: 2s
+  ring_good: "good:d=8,o=5,b=140: c4, e4, g4, c5"
+  ring_bad: "bad:d=8,o=5,b=100: c5, g4, e4, c4"
 
 esphome:
   name: "${device_id}"
   friendly_name: "${device_name}"
+
+  on_boot:
+    priority: 600
+    then:
+      - lambda: |-
+          id(gate_button_1).publish_state(false);
+          id(gate_button_2).publish_state(false);
+          id(gate_button_3).publish_state(false);
 
 esp32:
   board: esp32dev
@@ -57,13 +68,28 @@ binary_sensor:
     id: gate_button_1
     name: "Gate Button 1"
 
+    on_press:
+      - delay: ${state_bounce}
+      - lambda: |-
+          id(gate_button_1).publish_state(false);
+
   - platform: template
     id: gate_button_2
     name: "Gate Button 2"
 
+    on_press:
+      - delay: ${state_bounce}
+      - lambda: |-
+          id(gate_button_2).publish_state(false);
+
   - platform: template
     id: gate_button_3
     name: "Gate Button 3"
+
+    on_press:
+      - delay: ${state_bounce}
+      - lambda: |-
+          id(gate_button_3).publish_state(false);
 
 ########################
 # Hardware Setup
@@ -71,8 +97,19 @@ binary_sensor:
 
 # Enable board status LED
 status_led:
-  pin:
-    number: GPIO2
+  pin: GPIO2
+
+# Output for Buzzer
+output:
+  - platform: ledc
+    id: buzzer_output
+    pin: GPIO25
+    inverted: true
+
+# Buzzer Configuration (RTTTL)
+rtttl:
+  id: buzzer
+  output: buzzer_output
 
 # SPI Bus Configuration
 spi:
@@ -90,9 +127,14 @@ nrf24rx:
     then:
       - lambda: |-
           if (message == "button_1") {
-              id(gate_button_1).publish_state(true);
+            id(gate_button_1).publish_state(true);
+            // id(buzzer).play("${ring_good}");
           } else if (message == "button_2") {
-              id(gate_button_2).publish_state(true);
+            id(gate_button_2).publish_state(true);
+            // id(buzzer).play("${ring_good}");
           } else if (message == "button_3") {
-              id(gate_button_3).publish_state(true);
+            id(gate_button_3).publish_state(true);
+            // id(buzzer).play("${ring_good}");
+          } else {
+            // id(buzzer).play("${ring_bad}");
           }

@@ -3,8 +3,9 @@
 ########################
 
 substitutions:
-  device_id: blinds1
-  device_name: Blinds 1
+  device_id: blind-spider
+  device_name: Spider Blind
+  button_bounce: 100ms
 
 esphome:
   name: "${device_id}"
@@ -27,7 +28,8 @@ api:
   password: ""
 
 ota:
-  password: ""
+  - password: ""
+    platform: esphome
 
 wifi:
   ssid: !secret wifi_ssid
@@ -51,7 +53,7 @@ text_sensor:
 
 status_led:
   pin:
-    number: GPIO2
+    number: GPIO25
 
 sensor:
 
@@ -74,54 +76,59 @@ sensor:
 ########################
 
 switch:
+  # Relay 5: Orange - Orange White
   - platform: gpio
-    pin: GPIO32
+    pin: GPIO21
     name: "Up"
     id: id_up
     restore_mode: ALWAYS_OFF
 
     on_turn_on:
-    - delay: 1s
+    - delay: ${button_bounce}
     - switch.turn_off: id_up
 
+  # Relay 7: Brown - Brown White
   - platform: gpio
-    pin: GPIO33
+    pin: GPIO18
     name: "Stop"
     id: id_stop
     restore_mode: ALWAYS_OFF
 
     on_turn_on:
-    - delay: 1s
+    - delay: ${button_bounce}
     - switch.turn_off: id_stop
 
+  # Relay 6: Blue - Blue White
   - platform: gpio
-    pin: GPIO25
+    pin: GPIO19
     name: "Down"
     id: id_down
     restore_mode: ALWAYS_OFF
 
     on_turn_on:
-    - delay: 1s
+    - delay: ${button_bounce}
     - switch.turn_off: id_down
 
+  # Relay 4: Green - Green White
   - platform: gpio
-    pin: GPIO26
+    pin: GPIO12
     name: "Left"
     id: id_left
     restore_mode: ALWAYS_OFF
 
     on_turn_on:
-    - delay: 1s
+    - delay: ${button_bounce}
     - switch.turn_off: id_left
 
+  # Relay 3: Green - Green White
   - platform: gpio
-    pin: GPIO27
+    pin: GPIO13
     name: "Right"
     id: id_right
     restore_mode: ALWAYS_OFF
 
     on_turn_on:
-    - delay: 1s
+    - delay: ${button_bounce}
     - switch.turn_off: id_right
 
 cover:

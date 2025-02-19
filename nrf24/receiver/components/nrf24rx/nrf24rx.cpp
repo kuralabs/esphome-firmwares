@@ -46,7 +46,7 @@ void NRF24Receiver::loop() {
         ESP_LOGI(TAG, "New message received ...");
 
         // Get actual message size
-        uint8_t length = this->radio_.getDynamicPayloadSize();
+        uint8_t length = this->radio_.getPayloadSize();
         if (length == 0 || length > MAX_PAYLOAD) {
             ESP_LOGW(TAG, "Invalid message size: %d", length);
             return;
@@ -54,7 +54,9 @@ void NRF24Receiver::loop() {
 
         // Read ciphertext
         ESP_LOGI(TAG, "Reading message ...");
-        char buffer[MAX_PAYLOAD + 1] = "";
+        char buffer[MAX_PAYLOAD + 1];
+        memset(buffer, 0, sizeof(buffer));
+
         this->radio_.read(&buffer, length);
         ESP_LOGI(TAG, "Successfully read %d bytes message", length);
 
@@ -69,7 +71,7 @@ void NRF24Receiver::loop() {
         std::string message(buffer);
 
         // Call the user-defined callback function if set
-        ESP_LOGI(TAG, "Sending message to user callback: %s", message);
+        ESP_LOGI(TAG, "Sending message to user callback: %s", buffer);
         this->receive_callback_.call(message);
     }
 }

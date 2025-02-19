@@ -6,11 +6,6 @@
 
 #include <RF24.h>
 
-// FIXME: Make component a subclass of SPIDevice, possibly removing csn_pin
-// FIXME: Make this configurable in YAML
-#define PIPE_NUMBER 1
-#define PIPE_ADDRESS 0x01DEADC0DE
-
 // Buffer size is given by hardware, do not change it unless you know what
 // you're doing.
 #define MAX_PAYLOAD 32
@@ -19,7 +14,12 @@
 namespace esphome {
 namespace nrf24rx {
 
+// FIXME: Make this configurable in YAML
+const uint8_t PIPE_NUMBER = 1;
+const uint8_t PIPE_ADDRESS[] = { 0xDE, 0xAD, 0xC0, 0xDE, 0x01 };
 
+
+// FIXME: Make component a subclass of SPIDevice, possibly removing csn_pin
 class NRF24Receiver : public Component {
 
 public:
