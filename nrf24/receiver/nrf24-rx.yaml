@@ -42,6 +42,13 @@ logger:
 api:
   password: ""
 
+  services:
+    - service: play_rtttl
+      variables:
+        song: string
+      then:
+        - lambda: 'id(buzzer).play(song);'
+
 ota:
   - password: ""
     platform: esphome
@@ -61,6 +68,21 @@ text_sensor:
   - platform: wifi_info
     ip_address:
       name: "IP Address"
+
+sensor:
+
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # Extra sensor for WiFi signal
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
 
 # Define Binary Sensors for Button Presses
 binary_sensor:
@@ -106,7 +128,7 @@ output:
     pin: GPIO25
     inverted: true
 
-# Buzzer Configuration (RTTTL)
+# RTTTL buzzer configuration
 rtttl:
   id: buzzer
   output: buzzer_output
@@ -128,13 +150,13 @@ nrf24rx:
       - lambda: |-
           if (message == "button_1") {
             id(gate_button_1).publish_state(true);
-            // id(buzzer).play("${ring_good}");
+            id(buzzer).play("${ring_good}");
           } else if (message == "button_2") {
             id(gate_button_2).publish_state(true);
-            // id(buzzer).play("${ring_good}");
+            id(buzzer).play("${ring_good}");
           } else if (message == "button_3") {
             id(gate_button_3).publish_state(true);
-            // id(buzzer).play("${ring_good}");
+            id(buzzer).play("${ring_good}");
           } else {
-            // id(buzzer).play("${ring_bad}");
+            id(buzzer).play("${ring_bad}");
           }

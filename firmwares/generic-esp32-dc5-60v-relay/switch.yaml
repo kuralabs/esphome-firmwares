@@ -3,8 +3,8 @@
 ########################
 
 substitutions:
-  device_id: gate-1
-  device_name: Gate 1
+  device_id: special-1
+  device_name: Special 1
 
 esphome:
   name: "${device_id}"
@@ -27,7 +27,8 @@ api:
   password: ""
 
 ota:
-  password: ""
+  - platform: esphome
+    password: ""
 
 wifi:
   ssid: !secret wifi_ssid
@@ -81,20 +82,9 @@ binary_sensor:
       then:
         - switch.toggle: id_relay
 
-  - platform: gpio
-    pin:
-      number: GPIO1
-      mode: INPUT
-      inverted: True
-    name: "Closed"
-
 switch:
   - platform: gpio
-    name: "Opener"
+    name: "Relay"
     pin: GPIO16
     id: id_relay
     restore_mode: ALWAYS_OFF
-
-    on_turn_on:
-    - delay: 1s
-    - switch.turn_off: id_relay

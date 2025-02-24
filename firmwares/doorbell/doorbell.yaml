@@ -23,8 +23,8 @@ esphome:
       - wait_until:
           api.connected:
       - logger.log: API is connected!
-      #- rtttl.play: "${ringtone_boot}"
-      - media_player.play_media: "${sound_boot}"
+      - rtttl.play: "${ringtone_boot}"
+      #- media_player.play_media: "${sound_boot}"
       - light.turn_on:
           id: user_led
           brightness: 100%
@@ -63,7 +63,8 @@ api:
     - media_player.play_media: !lambda 'return song_str;'
 
 ota:
-  password: ""
+  - password: ""
+    platform: esphome
 
 wifi:
   ssid: !secret wifi_ssid
@@ -124,8 +125,8 @@ pn532_i2c:
         flash_length: 1s
     - homeassistant.tag_scanned: !lambda |-
         return "${device_id}-" + x;
-    - media_player.play_media: "${sound_scan}"
-    #- rtttl.play: "${ringtone_scan}"
+    #- media_player.play_media: "${sound_scan}"
+    - rtttl.play: "${ringtone_scan}"
 
   on_tag_removed:
     then:
@@ -137,6 +138,12 @@ i2s_audio:
   id: i2s_dac
   i2s_lrclk_pin: GPIO26
   i2s_bclk_pin: GPIO27
+
+speaker:
+  - id: i2s_speaker
+    platform: i2s_audio
+    dac_type: external
+    i2s_dout_pin: GPIO25
 
 media_player:
   - platform: i2s_audio
@@ -169,8 +176,8 @@ binary_sensor:
     name: "Button"
     on_press:
       then:
-        - media_player.play_media: "${sound_ring}"
-        #- rtttl.play: "${ringtone_ring}"
+        #- media_player.play_media: "${sound_ring}"
+        - rtttl.play: "${ringtone_ring}"
 
 # Configure the buzzer
 output:
@@ -179,4 +186,5 @@ output:
     id: buzzer
 
 rtttl:
-  output: buzzer
+  speaker: i2s_speaker
+  # output: buzzer

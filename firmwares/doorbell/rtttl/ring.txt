@@ -1,0 +1,1 @@
+ring:d=16,o=5,b=140:c,g,a,g,c6,g,a,g,c6,g,a,g,c6,g,a,g
