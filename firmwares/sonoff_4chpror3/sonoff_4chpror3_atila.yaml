@@ -1,6 +1,6 @@
 substitutions:
-  device_id: pergola-relay-controller
-  device_name: Pergola Relay Controller
+  device_id: atila-home-controller
+  device_name: Atila Home Controller
 
 esphome:
   name: "${device_id}"
@@ -21,7 +21,8 @@ api:
   password: ""
 
 ota:
-  password: ""
+  - password: ""
+    platform: esphome
 
 wifi:
   ssid: !secret wifi_ssid
@@ -69,40 +70,40 @@ binary_sensor:
       number: GPIO0
       mode: INPUT_PULLUP
       inverted: True
-    name: "Button 1"
+    name: "Gate Button"
     on_press:
       then:
-        - switch.toggle: id_relay_1
+        - switch.toggle: id_gate_relay
 
   - platform: gpio
     pin:
       number: GPIO9
       mode: INPUT_PULLUP
       inverted: True
-    name: "Button 2"
+    name: "Feeder Button"
     on_press:
       then:
-        - switch.toggle: id_relay_2
+        - switch.toggle: id_feeder_relay
 
   - platform: gpio
     pin:
       number: GPIO10
       mode: INPUT_PULLUP
       inverted: True
-    name: "Button 3"
+    name: "Light Button"
     on_press:
       then:
-        - switch.toggle: id_relay_3
+        - light.toggle: id_light
 
   - platform: gpio
     pin:
       number: GPIO14
       mode: INPUT_PULLUP
       inverted: True
-    name: "Button 4"
+    name: "Heat Button"
     on_press:
       then:
-        - switch.toggle: id_relay_4
+        - switch.toggle: id_heat_relay
 
   - platform: status
     name: "Status"
@@ -110,25 +111,30 @@ binary_sensor:
 switch:
   - platform: gpio
     pin: GPIO12
-    name: "Relay 1"
-    id: id_relay_1
+    name: "Gate Relay"
+    id: id_gate_relay
+
+    on_turn_on:
+      - delay: 2s
+      - switch.turn_off: id_gate_relay
 
   - platform: gpio
     pin: GPIO5
-    name: "Relay 2"
-    id: id_relay_2
-
-    # Uncomment this to automatically toggle the relay back off
-    # on_turn_on:
-    # - delay: 1s
-    # - switch.turn_off: id_relay_2
-
-  - platform: gpio
-    pin: GPIO4
-    name: "Relay 3"
-    id: id_relay_3
+    name: "Feeder Relay"
+    id: id_feeder_relay
 
   - platform: gpio
     pin: GPIO15
-    name: "Relay 4"
-    id: id_relay_4
+    name: "Heat Relay"
+    id: id_heat_relay
+
+output:
+  - platform: gpio
+    pin: GPIO4
+    id: id_light_relay
+
+light:
+  - platform: binary
+    name: "Light"
+    output: id_light_relay
+    id: id_light

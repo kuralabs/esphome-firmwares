@@ -10,28 +10,33 @@ substitutions:
   id_prefix: ${device_id}
   friendly_name: ${device_name}
 
-  input_obst_pin: GPIO12
-  uart_rx_pin: GPIO17
-  uart_tx_pin: GPIO18
+  #1| OBS GPIO27
+  #2| URX GPIO25
+  #*********
+  #3| UTX GPIO32
+  #4| GND
+  input_obst_pin: GPIO27
+  uart_rx_pin: GPIO25
+  uart_tx_pin: GPIO32
 
   # Output door status, HIGH for open (and closing), LOW for closed (and opening)
   # https://github.com/ratgdo/esphome-ratgdo/blob/05967a5cb1e27341e55917188c79ca80a610da5f/base.yaml#L248
-  status_door_pin: GPIO33
+  status_door_pin: GPIO21
   # Output obstruction status, HIGH for obstructed, LOW for clear
-  status_obstruction_pin: GPIO25
+  status_obstruction_pin: GPIO22
 
   # Input for opening door
   # Pulled up input, set to LOW to start opening the door
-  dry_contact_open_pin: GPIO27
+  dry_contact_open_pin: GPIO17
   # Input for closing door
   # Pulled up input, set to LOW to start closing the door
-  dry_contact_close_pin: GPIO26
+  dry_contact_close_pin: GPIO18
   # Alternatively, set both to LOW at the same time to toggle:
   # https://github.com/ratgdo/esphome-ratgdo/blob/05967a5cb1e27341e55917188c79ca80a610da5f/base.yaml#L182
 
   # Input triggering light
   # Pulled up input, set to LOW to start closing the door
-  dry_contact_light_pin: GPIO32
+  dry_contact_light_pin: GPIO19
 
 esphome:
   name: "${device_id}"
