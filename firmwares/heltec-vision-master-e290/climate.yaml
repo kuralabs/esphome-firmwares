@@ -1,0 +1,447 @@
+########################
+# Device Setup
+########################
+
+substitutions:
+  device_id: "climate-sensor-bedroom"
+  device_name: Climate Sensor Bedroom
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+  on_boot:
+    # Turn on the e-ink power as soon as we boot
+    - priority: 600.0
+      then:
+        - switch.turn_on: epower
+        # Allow time for the e-ink power to stabilize
+        - delay: 100ms
+
+    # Update climate sensor after the sensor has initialized
+    - priority: 250
+      then:
+        - component.update: climate_sensor
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 15min
+  password: ""
+
+ota:
+  - password: ""
+    platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+  on_connect:
+    then:
+      - component.update: edisplay
+
+  on_disconnect:
+    then:
+      - component.update: edisplay
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+time:
+  - platform: homeassistant
+    id: ha_time
+
+########################
+# Hardware Setup
+########################
+
+status_led:
+  pin:
+    number: GPIO45
+
+# I2C bus definition
+i2c:
+  scl: GPIO38
+  sda: GPIO39
+  scan: true
+  id: i2c_bus
+
+# SPI bus definition
+spi:
+  clk_pin: GPIO2
+  mosi_pin: GPIO1
+
+sensor:
+  - platform: aht10
+    variant: AHT20
+    id: climate_sensor
+    temperature:
+      name: "Temperature"
+      id: temperature_sensor
+    humidity:
+      name: "Humidity"
+      id: humidity_sensor
+    update_interval: never
+
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # Extra sensor for WiFi signal
+  - platform: wifi_signal
+    id: wifi_signal_sensor
+    name: "WiFi Signal"
+    update_interval: 60s
+
+globals:
+  - id: dark_theme
+    type: bool
+    restore_value: true  # Remembers the theme across reboots
+    initial_value: 'true'
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO21
+    id: theme_button
+    internal: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_press:
+      then:
+        - lambda: |-
+            id(dark_theme) = !id(dark_theme);
+        - component.update: edisplay
+
+# Switch to control Display Power (Ve Ctrl)
+switch:
+  - platform: gpio
+    id: epower
+    pin: GPIO18
+    restore_mode: ALWAYS_OFF
+    internal: true
+
+# Font definitions
+font:
+  - file: "gfonts://Roboto"
+    id: roboto_20
+    size: 20
+    extras:
+      - file: "gfonts://Material+Symbols"
+        glyphs: [
+          # Wifi Signal
+          "\U0000F063",  # Signal Wifi Bad
+          "\U0000F0B0",  # Signal Wifi 0 Bar
+          "\U0000EBE4",  # Network Wifi 1 Bar
+          "\U0000EBD6",  # Network Wifi 2 Bar
+          "\U0000EBE1",  # Network Wifi 3 Bar
+          "\U0000E1D8",  # Signal Wifi 4 Bar
+        ]
+
+  - file: "gfonts://Material+Symbols"
+    id: icons_30
+    size: 30
+    glyphs: [
+      "\U0000E798",  # Water Drop
+      "\U0000E846",  # Thermometer
+    ]
+
+  - file: "gfonts://Roboto"
+    id: roboto_50
+    size: 50
+    extras:
+      - file: "gfonts://Material+Symbols"
+        glyphs: [
+          "\U0000E627",  # Sync
+        ]
+
+# Define colors
+color:
+  - id: color_black
+    red: 0%
+    green: 0%
+    blue: 0%
+    white: 100%
+  - id: color_white
+    red: 0%
+    green: 0%
+    blue: 0%
+    white: 0%
+
+# E-Ink Display Configuration
+display:
+  - platform: waveshare_epaper
+    id: edisplay
+    cs_pin: GPIO3
+    dc_pin: GPIO4
+    reset_pin: GPIO5
+    busy_pin: GPIO6
+    model: 2.90inv2-r2
+    rotation: 90°
+    update_interval: never
+    lambda: |-
+      // Define screen dimensions
+      const int screen_width = 296;
+      const int screen_height = 128;
+
+      const int font_small = 20;
+      const int font_medium = 30;
+      const int font_large = 50;
+
+      const int horizontal_margin = 10;
+      const int vertical_margin = 10;
+
+      std::map<std::string, std::string> icon_map
+        {
+          {"water-drop", "\U0000E798"},
+          {"thermometer", "\U0000E846"},
+          {"sync", "\U0000E627"},
+        };
+
+      const char* wifi_icons[] = {
+        "\U0000F063", // 0: No Connection
+        "\U0000F0B0", // 1: Very Poor
+        "\U0000EBE4", // 2: Poor
+        "\U0000EBD6", // 3: Fair
+        "\U0000EBE1", // 4: Good
+        "\U0000E1D8", // 5: Very Good
+      };
+
+      const int center_x = screen_width / 2;
+      const int center_y = (
+        (screen_height - font_small) / 2
+      ) + font_small + vertical_margin * 2;
+
+      // Fetch sensor values
+      float temp = id(temperature_sensor).state;
+      float hum = id(humidity_sensor).state;
+
+      // Define Wi-Fi quality function locally
+      auto get_wifi_quality = []() -> int {
+        float rssi = id(wifi_signal_sensor).state;
+        if (std::isnan(rssi)) {
+          return 0; // No Connection
+        } else if (rssi >= -60) {
+          return 5; // Very Good
+        } else if (rssi >= -67) {
+          return 4; // Good
+        } else if (rssi >= -74) {
+          return 3; // Fair
+        } else if (rssi >= -80) {
+          return 2; // Poor
+        } else {
+          return 1; // Very Poor
+        }
+      };
+      int wifi_level = get_wifi_quality();
+
+      // Set dynamic colors based on theme
+      auto color_bg = id(dark_theme) ? id(color_black) : id(color_white);
+      auto color_fg = id(dark_theme) ? id(color_white) : id(color_black);
+
+      // Fill entire background black
+      it.fill(color_bg);
+
+      // Top Row: Date and Time
+      auto now = id(ha_time).now();
+      if (now.is_valid()) {
+        it.strftime(
+          center_x,
+          vertical_margin,
+          id(roboto_20),
+          color_fg,
+          TextAlign::CENTER,
+          "%d/%m %I:%M %p",
+          now
+        );
+      } else {
+        it.print(
+          center_x,
+          vertical_margin,
+          id(roboto_20),
+          color_fg,
+          TextAlign::CENTER,
+          "No Clock"
+        );
+      }
+
+      // Wi-Fi icon drawing (top right corner)
+      it.print(
+        screen_width - horizontal_margin,
+        0,
+        id(roboto_20),
+        color_fg,
+        TextAlign::TOP_RIGHT,
+        wifi_icons[wifi_level]
+      );
+
+      // Horizontal divider line
+      it.line(
+        horizontal_margin,
+        font_small + vertical_margin / 2,
+        screen_width - horizontal_margin,
+        font_small + vertical_margin / 2,
+        color_fg
+      );
+
+      // Vertical divider line (center)
+      it.line(
+        center_x,
+        font_small + vertical_margin / 2,
+        center_x,
+        screen_height - vertical_margin,
+        color_fg
+      );
+
+      auto draw_value = [&](float value, int x, int y, const char* unit) {
+        int val_int = int(value);
+        int val_dec = int((value - val_int) * 10.0f);
+
+        // Measure text parts
+        int _x, _y, _h;
+        int int_w, dec_w, unit_w;
+
+        // Main integer (big font)
+        it.get_text_bounds(
+          0, 0,
+          String(val_int).c_str(),
+          id(roboto_50),
+          TextAlign::TOP_LEFT,
+          &_x, &_y, &int_w, &_h
+        );
+
+        // Decimal part (small font)
+        it.get_text_bounds(
+          0, 0,
+          (String(".") + String(val_dec)).c_str(),
+          id(roboto_20),
+          TextAlign::TOP_LEFT,
+          &_x, &_y, &dec_w, &_h
+        );
+
+        // Unit symbol (small font)
+        it.get_text_bounds(
+          0, 0,
+          unit,
+          id(roboto_20),
+          TextAlign::TOP_LEFT,
+          &_x, &_y, &unit_w, &_h
+        );
+
+        // Total width
+        int gap = 2; // 2 pixels breathing room
+        int total_w = int_w + gap + std::max(dec_w, unit_w);
+
+        // Starting X to center all
+        int start_x = x + int_w + gap + (((screen_width / 2) - total_w) / 2);
+
+        // Draw parts
+        it.printf(
+          start_x,
+          y,
+          id(roboto_50),
+          color_fg,
+          TextAlign::CENTER_RIGHT,
+          "%d",
+          val_int
+        );
+
+        it.printf(
+          start_x,
+          y,
+          id(roboto_20),
+          color_fg,
+          TextAlign::TOP_LEFT,
+          ".%d",
+          val_dec
+        );
+
+        it.printf(
+          start_x,
+          y,
+          id(roboto_20),
+          color_fg,
+          TextAlign::BOTTOM_LEFT,
+          "%s",
+          unit
+        );
+      };
+      // Temperature (left side)
+      it.printf(
+        center_x / 2,
+        center_y - (font_large / 2 + font_medium + vertical_margin / 2),
+        id(icons_30),
+        color_fg,
+        TextAlign::TOP_CENTER,
+        "%s",
+        icon_map["thermometer"].c_str()
+      );
+      if (!std::isnan(temp)) {
+        draw_value(temp, 0, center_y, "°C");
+      } else {
+        it.printf(
+          center_x / 2,
+          center_y,
+          id(roboto_50),
+          color_fg,
+          TextAlign::CENTER,
+          "%s",
+          icon_map["sync"].c_str()
+        );
+      }
+
+      // Humidity (right side)
+      it.printf(
+        center_x + center_x / 2,
+        center_y - (font_large / 2 + font_medium + vertical_margin / 2),
+        id(icons_30),
+        color_fg,
+        TextAlign::TOP_CENTER,
+        "%s",
+        icon_map["water-drop"].c_str()
+      );
+      if (!std::isnan(hum)) {
+        draw_value(hum, center_x, center_y, "%");
+      } else {
+        it.printf(
+          center_x + center_x / 2,
+          center_y,
+          id(roboto_50),
+          color_fg,
+          TextAlign::CENTER,
+          "%s",
+          icon_map["sync"].c_str()
+        );
+      }
+
+# Drive the reading of the sensor the display of its values
+interval:
+  - interval: 1min
+    then:
+      - component.update: climate_sensor
+      - delay: 100ms
+      - component.update: edisplay

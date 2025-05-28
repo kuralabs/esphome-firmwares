@@ -27,10 +27,10 @@ substitutions:
 
   # Input for opening door
   # Pulled up input, set to LOW to start opening the door
-  dry_contact_open_pin: GPIO15  # Disconnected
+  dry_contact_open_pin: GPIO17
   # Input for closing door
   # Pulled up input, set to LOW to start closing the door
-  dry_contact_close_pin: GPIO18  # Disconnected
+  dry_contact_close_pin: GPIO18
   # Alternatively, set both to LOW at the same time to toggle:
   # https://github.com/ratgdo/esphome-ratgdo/blob/05967a5cb1e27341e55917188c79ca80a610da5f/base.yaml#L182
 
@@ -118,18 +118,17 @@ switch:
   - platform: gpio
     name: "Relay"
     pin: GPIO16
-    id: ${id_prefix}_relay
+    id: id_relay
     restore_mode: ALWAYS_OFF
     internal: true
 
 binary_sensor:
   - platform: gpio
-    id: ${id_prefix}_board_button
     pin:
       number: GPIO0
       mode: INPUT_PULLUP
       inverted: True
-    name: "Board Button"
+    name: "Button"
     filters:
       - delayed_on: 10ms
       - delayed_off: 10ms
@@ -137,33 +136,18 @@ binary_sensor:
       then:
         - if:
             condition:
-              lock.is_locked: ${id_prefix}_door_lock
+              lock.is_locked: garage_door_lock
             then:
-              - lock.unlock: ${id_prefix}_door_lock
+              - lock.unlock: garage_door_lock
             else:
-              - lock.lock: ${id_prefix}_door_lock
-
-  - platform: gpio
-    id: ${id_prefix}_wall_button
-    pin:
-      number: GPIO17
-      inverted: true
-      mode:
-        input: true
-        pullup: true
-    name: "Wall Button"
-    filters:
-      - delayed_on: 50ms
-      - delayed_off: 50ms
-    on_press:
-      - cover.toggle: ${id_prefix}_door_with_lock
+              - lock.lock: garage_door_lock
 
 lock:
   - platform: template
     name: "Garage Door Lock"
-    id: ${id_prefix}_door_lock
+    id: garage_door_lock
     lambda: |-
-      if (id(${id_prefix}_relay).state) {
+      if (id(id_relay).state) {
         return LOCK_STATE_LOCKED;
       } else {
         return LOCK_STATE_UNLOCKED;
@@ -171,17 +155,17 @@ lock:
 
     lock_action:
       - logger.log: "Locking garage door"
-      - switch.turn_on: ${id_prefix}_relay
+      - switch.turn_on: id_relay
 
     unlock_action:
       - logger.log: "Unlocking garage door"
-      - switch.turn_off: ${id_prefix}_relay
+      - switch.turn_off: id_relay
       - delay: 300ms
 
 cover:
   - platform: template
     name: "Garage Door with Lock"
-    id: ${id_prefix}_door_with_lock
+    id: garage_door_with_lock
     icon: mdi:garage-variant
 
     has_position: true
@@ -189,43 +173,18 @@ cover:
       return id(${id_prefix}_garage_door).position;
 
     position_action:
-      - lock.unlock: ${id_prefix}_door_lock
+      - lock.unlock: garage_door_lock
       - cover.control:
           id: ${id_prefix}_garage_door
           position: !lambda 'return pos;'
 
     open_action:
-      - lock.lock: ${id_prefix}_door_lock
+      - lock.lock: garage_door_lock
       - cover.open: ${id_prefix}_garage_door
 
     close_action:
-      - lock.unlock: ${id_prefix}_door_lock
+      - lock.unlock: garage_door_lock
       - cover.close: ${id_prefix}_garage_door
-
-    toggle_action:
-      - lambda: |-
-          if (id(${id_prefix}_garage_door).position == COVER_CLOSED) {
-            // Door is closed, locking before next toggle (which will open it)
-            id(${id_prefix}_door_lock).lock();
-          } else {
-            // Door is open or moving, unlock to allow movement
-            id(${id_prefix}_door_lock).unlock();
-          }
-      - lambda: |-
-          id(${id_prefix}).door_toggle();
 
     stop_action:
       - cover.stop: ${id_prefix}_garage_door
-
-  - id: !extend ${id_prefix}_garage_door
-    internal: true
-
-button:
-  - platform: template
-    name: "Toggle Door with Lock"
-    id: "${id_prefix}_toggle_door_safe"
-    on_press:
-      - cover.toggle: ${id_prefix}_door_with_lock
-
-  - id: !extend ${id_prefix}_toggle_door
-    internal: true

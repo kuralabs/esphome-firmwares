@@ -1,0 +1,22 @@
+meta {
+  name: ota_flash
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://{{IP}}:8081/zeroconf/ota_flash
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "deviceid": "",
+      "data": {
+          "downloadUrl": "http://sonoff-ota.aelius.com/tasmota-latest-lite.bin",
+          "sha256sum": "5c1aecd2a19a49ae1bec0c863f69b83ef40812145c8392eebe5fd2677a6250cc"
+      }
+  }
+  
+}

@@ -3,15 +3,15 @@
 ########################
 
 substitutions:
-  device_id: light-a
-  device_name: Light A
+  device_id: bernis-gate
+  device_name: "Berni's Gate"
 
 esphome:
   name: "${device_id}"
   friendly_name: "${device_name}"
 
 esp8266:
-  board: esp01_1m
+  board: esp12e
 
 ########################
 # Software Stack Setup
@@ -22,12 +22,11 @@ logger:
 
 # Enable Home Assistant API
 api:
-  reboot_timeout: 15min
   password: ""
 
 ota:
-  - password: ""
-    platform: esphome
+  - platform: esphome
+    password: ""
 
 wifi:
   ssid: !secret wifi_ssid
@@ -46,6 +45,7 @@ text_sensor:
       name: "IP Address"
 
 sensor:
+
   # Extra sensor to keep track of plug uptime
   - platform: uptime
     name: "Uptime"
@@ -65,44 +65,28 @@ sensor:
 
 status_led:
   pin:
-    number: GPIO13
+    number: GPIO2
     inverted: true
 
 binary_sensor:
-  # Toggles the main relay on press of reset button
+
   - platform: gpio
-    pin: GPIO00
-    id: id_reset
-    internal: true
-    filters:
-      - invert:
-      - delayed_off: 10ms
+    pin:
+      number: GPIO12
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "Button"
     on_press:
       then:
-        - light.toggle:
-            id: id_light
+        - switch.toggle: id_relay
 
-  # Toggles the main relay on switch toggle
+switch:
   - platform: gpio
-    pin: GPIO04
-    id: id_switch
-    internal: true
-    on_press:
-      then:
-        - light.toggle:
-            id: id_light
-    on_release:
-      then:
-        - light.toggle:
-            id: id_light
-
-output:
-  - platform: gpio
-    pin: GPIO12
+    name: "Opener"
+    pin: GPIO5
     id: id_relay
+    restore_mode: ALWAYS_OFF
 
-light:
-  - platform: binary
-    output: id_relay
-    name: Light
-    id: id_light
+    on_turn_on:
+    - delay: 1s
+    - switch.turn_off: id_relay

@@ -3,12 +3,24 @@
 ########################
 
 substitutions:
-  device_id: light-a
-  device_name: Light A
+  device_id: "light-pantry"
+  device_name: Light Pantry
 
 esphome:
   name: "${device_id}"
   friendly_name: "${device_name}"
+
+  on_boot:
+    # After binary sensors are ready
+    priority: 250
+    then:
+      - if:
+          condition:
+            binary_sensor.is_on: id_switch
+          then:
+            - light.turn_on: id_light
+          else:
+            - light.turn_off: id_light
 
 esp8266:
   board: esp01_1m
@@ -89,11 +101,11 @@ binary_sensor:
     internal: true
     on_press:
       then:
-        - light.toggle:
+        - light.turn_on:
             id: id_light
     on_release:
       then:
-        - light.toggle:
+        - light.turn_off:
             id: id_light
 
 output:

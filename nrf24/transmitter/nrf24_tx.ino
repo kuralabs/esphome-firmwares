@@ -12,7 +12,8 @@
 // User interaction pins
 #define BUTTON_1 A1
 #define BUTTON_2 A2
-#define BUTTON_3 A5
+#define BUTTON_3 A4
+#define BUTTON_4 A5
 #define DEBOUNCE_TIME 200  // ms
 
 // Pixel configuration
@@ -26,7 +27,7 @@ CRGB leds[1];
 #define MAX_PAYLOAD 32
 
 const uint8_t PIPE_ADDRESS[] = { 0xDE, 0xAD, 0xC0, 0xDE, 0x01 };
-const char ENCRYPTION_KEY[] = "REDACTED PUT 64 CHAR HEX STRING";
+const char ENCRYPTION_KEY[] = "448fae61816fa443086d38d6689a6e093f5caa8da7fa205cdc2d0f42a5322439";
 
 RF24 radio(CE_PIN, CSN_PIN);
 uint8_t xor_key[MAX_PAYLOAD];
@@ -87,6 +88,7 @@ void setup() {
   pinMode(BUTTON_1, INPUT_PULLUP);
   pinMode(BUTTON_2, INPUT_PULLUP);
   pinMode(BUTTON_3, INPUT_PULLUP);
+  pinMode(BUTTON_4, INPUT_PULLUP);
   Serial.println("[READY] I/O");
 
   // Initialize NRF24 radio
@@ -98,7 +100,7 @@ void setup() {
   }
 
   radio.openWritingPipe(PIPE_ADDRESS);  // Set NRF24 address
-  radio.setPALevel(RF24_PA_LOW);        // Set power level
+  radio.setPALevel(RF24_PA_HIGH);       // Set power level
   radio.stopListening();                // Set NRF24 to transmit mode
   radio.powerDown();                    // Low power mode, will wake up when needed
   Serial.println("[READY] Radio");
@@ -107,6 +109,7 @@ void setup() {
   LowPower.attachInterruptWakeup(BUTTON_1, isr_button_1, FALLING);
   LowPower.attachInterruptWakeup(BUTTON_2, isr_button_2, FALLING);
   LowPower.attachInterruptWakeup(BUTTON_3, isr_button_3, FALLING);
+  LowPower.attachInterruptWakeup(BUTTON_4, isr_button_4, FALLING);
   Serial.println("[READY] ISR");
 
   Serial.println("[DONE]");
@@ -211,4 +214,8 @@ void isr_button_2() {
 
 void isr_button_3() {
   button_pressed = 3;
+}
+
+void isr_button_4() {
+  button_pressed = 4;
 }

@@ -73,7 +73,7 @@ binary_sensor:
     name: "Button 1"
     on_press:
       then:
-        - switch.toggle: id_relay_1
+        - light.toggle: id_backyard_lights
 
   - platform: gpio
     pin:
@@ -110,11 +110,6 @@ binary_sensor:
 
 switch:
   - platform: gpio
-    pin: GPIO12
-    name: "Relay 1"
-    id: id_relay_1
-
-  - platform: gpio
     pin: GPIO5
     name: "Relay 2"
     id: id_relay_2
@@ -128,3 +123,14 @@ switch:
     pin: GPIO15
     name: "Relay 4"
     id: id_relay_4
+
+output:
+  - platform: gpio
+    pin: GPIO12
+    id: id_relay_1
+
+light:
+  - platform: binary
+    name: "Backyard Lights"
+    output: id_relay_1
+    id: id_backyard_lights

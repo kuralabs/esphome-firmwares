@@ -3,15 +3,19 @@
 ########################
 
 substitutions:
-  device_id: light-a
-  device_name: Light A
+  device_id: pixel-matrix-1
+  device_name: Pixel Matrix 1
 
 esphome:
   name: "${device_id}"
   friendly_name: "${device_name}"
+  platformio_options:
+    board_build.flash_mode: dio
 
-esp8266:
-  board: esp01_1m
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
 
 ########################
 # Software Stack Setup
@@ -22,12 +26,11 @@ logger:
 
 # Enable Home Assistant API
 api:
-  reboot_timeout: 15min
   password: ""
 
 ota:
-  - password: ""
-    platform: esphome
+  - platform: esphome
+    password: ""
 
 wifi:
   ssid: !secret wifi_ssid
@@ -63,46 +66,21 @@ sensor:
 # Hardware Setup
 ########################
 
-status_led:
-  pin:
-    number: GPIO13
-    inverted: true
-
-binary_sensor:
-  # Toggles the main relay on press of reset button
-  - platform: gpio
-    pin: GPIO00
-    id: id_reset
-    internal: true
-    filters:
-      - invert:
-      - delayed_off: 10ms
-    on_press:
-      then:
-        - light.toggle:
-            id: id_light
-
-  # Toggles the main relay on switch toggle
-  - platform: gpio
-    pin: GPIO04
-    id: id_switch
-    internal: true
-    on_press:
-      then:
-        - light.toggle:
-            id: id_light
-    on_release:
-      then:
-        - light.toggle:
-            id: id_light
-
-output:
-  - platform: gpio
-    pin: GPIO12
-    id: id_relay
-
 light:
-  - platform: binary
-    output: id_relay
-    name: Light
-    id: id_light
+  - platform: neopixelbus
+    name: "Pixel Matrix"
+    id: pixel_matrix
+    type: RGB
+    variant: WS2811
+    pin: GPIO14
+    num_leds: 64
+    color_correct: [40%, 40%, 40%]
+    effects:
+      - addressable_rainbow:
+      - addressable_scan:
+      - addressable_twinkle:
+      - addressable_color_wipe:
+      - addressable_fireworks:
+      - addressable_flicker:
+          update_interval: 16ms
+          intensity: 20%

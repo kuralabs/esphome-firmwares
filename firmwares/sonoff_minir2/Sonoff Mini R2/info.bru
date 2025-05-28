@@ -1,0 +1,15 @@
+meta {
+  name: info
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://{{IP}}:8081/zeroconf/info
+  body: json
+  auth: none
+}
+
+body:json {
+  {"data": {}}
+}

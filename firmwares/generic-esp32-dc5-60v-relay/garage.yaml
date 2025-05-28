@@ -109,21 +109,76 @@ status_led:
     number: GPIO23
     inverted: true
 
-binary_sensor:
-
-  - platform: gpio
-    pin:
-      number: GPIO0
-      mode: INPUT_PULLUP
-      inverted: True
-    name: "Button"
-    on_press:
-     then:
-       - switch.toggle: id_relay
-
 switch:
   - platform: gpio
     name: "Relay"
     pin: GPIO16
     id: id_relay
     restore_mode: ALWAYS_OFF
+    internal: true
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "Button"
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
+    on_press:
+      then:
+        - if:
+            condition:
+              lock.is_locked: garage_door_lock
+            then:
+              - lock.unlock: garage_door_lock
+            else:
+              - lock.lock: garage_door_lock
+
+lock:
+  - platform: template
+    name: "Garage Door Lock"
+    id: garage_door_lock
+    lambda: |-
+      if (id(id_relay).state) {
+        return LOCK_STATE_LOCKED;
+      } else {
+        return LOCK_STATE_UNLOCKED;
+      }
+
+    lock_action:
+      - logger.log: "Locking garage door"
+      - switch.turn_on: id_relay
+
+    unlock_action:
+      - logger.log: "Unlocking garage door"
+      - switch.turn_off: id_relay
+      - delay: 300ms
+
+cover:
+  - platform: template
+    name: "Garage Door with Lock"
+    id: garage_door_with_lock
+
+    has_position: true
+    lambda: |-
+      return id(${id_prefix}_garage_door).position;
+
+    position_action:
+      - lock.unlock: garage_door_lock
+      - cover.control:
+          id: ${id_prefix}_garage_door
+          position: !lambda 'return pos;'
+
+    open_action:
+      - lock.lock: garage_door_lock
+      - cover.open: ${id_prefix}_garage_door
+
+    close_action:
+      - lock.unlock: garage_door_lock
+      - cover.close: ${id_prefix}_garage_door
+
+    stop_action:
+      - cover.stop: ${id_prefix}_garage_door

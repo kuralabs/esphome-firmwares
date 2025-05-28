@@ -1,0 +1,226 @@
+########################
+# Device Setup
+########################
+
+substitutions:
+  device_id: gate-camera-wiper
+  device_name: Gate Camera Wiper
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+
+  on_boot:
+    - priority: -100
+      then:
+        - script.execute: do_wipe
+
+esp32:
+  board: wemos_d1_mini32
+  framework:
+    type: arduino
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+########################
+# Hardware Setup
+########################
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true
+
+output:
+  - platform: ledc
+    id: servo_pwm
+    pin: GPIO16
+    frequency: 50 Hz
+
+servo:
+  - id: wiper_servo
+    output: servo_pwm
+    transition_length: 0.5s
+    # Fine tunning servo range:
+    min_level: 0.025  # 2.5% = 0.5ms
+    # max_level: 0.125  # 12.5% = 2.5ms
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO25
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Wipe Button"
+    id: wipe_button
+    on_press:
+      then:
+        - script.execute: do_wipe
+
+globals:
+  - id: wipe_interval_minutes
+    type: int
+    restore_value: yes
+    initial_value: '10'
+
+  - id: wipe_repetitions
+    type: int
+    restore_value: yes
+    initial_value: '3'
+
+  - id: wipe_delay_s
+    type: int
+    initial_value: '2'
+    restore_value: yes
+
+  - id: servo_range_degrees
+    type: int
+    restore_value: yes
+    initial_value: '60'
+
+  - id: wipe_min_pos
+    type: float
+    initial_value: '-0.333'
+
+  - id: wipe_max_pos
+    type: float
+    initial_value: '0.333'
+
+number:
+  - platform: template
+    name: "Wipe Interval (minutes)"
+    id: wipe_interval_input
+    min_value: 1
+    max_value: 1440
+    step: 1
+    initial_value: 10
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(wipe_interval_minutes) = (int)x;
+
+  - platform: template
+    name: "Wipe Repetitions"
+    id: wipe_repetitions_input
+    min_value: 1
+    max_value: 10
+    step: 1
+    initial_value: 3
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(wipe_repetitions) = (int)x;
+
+  - platform: template
+    name: "Wipe Delay (s)"
+    id: wipe_delay_input
+    min_value: 1
+    max_value: 10
+    step: 1
+    initial_value: 1
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(wipe_delay_s) = (int)x;
+
+  - platform: template
+    name: "Servo Range (degrees)"
+    id: servo_range_input
+    min_value: 10
+    max_value: 180
+    step: 5
+    initial_value: 60
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(servo_range_degrees) = (int)x;
+
+  # Debug
+  - platform: template
+    name: "Wiper Servo Position"
+    id: servo_position_slider
+    min_value: -1.0
+    max_value: 1.0
+    step: 0.01
+    initial_value: 0.0
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(wiper_servo).write(x);
+
+switch:
+  - platform: template
+    name: "Wiper"
+    id: wiper_switch
+    turn_on_action:
+      - script.execute: do_wipe
+      - switch.turn_off: wiper_switch
+
+interval:
+  - interval: 1min
+    then:
+      - lambda: |-
+          static int minutes_counter = 0;
+          minutes_counter++;
+          if (minutes_counter >= id(wipe_interval_minutes)) {
+            minutes_counter = 0;
+            id(do_wipe).execute();
+          }
+
+script:
+  - id: update_wipe_range
+    mode: restart
+    then:
+      - lambda: |-
+          float range = id(servo_range_degrees);
+          float center_deg = 90.0;
+          float min_deg = center_deg - (range / 2.0);
+          float max_deg = center_deg + (range / 2.0);
+          id(wipe_min_pos) = (min_deg - 90.0) / 90.0;
+          id(wipe_max_pos) = (max_deg - 90.0) / 90.0;
+
+  - id: do_wipe
+    mode: queued
+    then:
+      - script.execute: update_wipe_range
+      - repeat:
+          count: !lambda 'return id(wipe_repetitions);'
+          then:
+            - servo.write:
+                id: wiper_servo
+                level: !lambda 'return id(wipe_max_pos);'
+            - delay: !lambda 'return id(wipe_delay_s) * 1000;'
+            - servo.write:
+                id: wiper_servo
+                level: !lambda 'return id(wipe_min_pos);'
+            - delay: !lambda 'return id(wipe_delay_s) * 1000;'
+      - servo.detach: wiper_servo

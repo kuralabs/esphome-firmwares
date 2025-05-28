@@ -1,0 +1,15 @@
+meta {
+  name: ota_unlock
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://{{IP}}:8081/zeroconf/ota_unlock
+  body: json
+  auth: none
+}
+
+body:json {
+  {"data": {}}
+}

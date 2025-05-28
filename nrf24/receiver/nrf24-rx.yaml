@@ -20,6 +20,7 @@ esphome:
           id(gate_button_1).publish_state(false);
           id(gate_button_2).publish_state(false);
           id(gate_button_3).publish_state(false);
+          id(gate_button_4).publish_state(false);
 
 esp32:
   board: esp32dev
@@ -113,6 +114,15 @@ binary_sensor:
       - lambda: |-
           id(gate_button_3).publish_state(false);
 
+  - platform: template
+    id: gate_button_4
+    name: "Gate Button 4"
+
+    on_press:
+      - delay: ${state_bounce}
+      - lambda: |-
+          id(gate_button_4).publish_state(false);
+
 ########################
 # Hardware Setup
 ########################
@@ -156,6 +166,9 @@ nrf24rx:
             id(buzzer).play("${ring_good}");
           } else if (message == "button_3") {
             id(gate_button_3).publish_state(true);
+            id(buzzer).play("${ring_good}");
+          } else if (message == "button_4") {
+            id(gate_button_4).publish_state(true);
             id(buzzer).play("${ring_good}");
           } else {
             id(buzzer).play("${ring_bad}");

@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Sonoff Mini R2",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

@@ -55,15 +55,22 @@ status_led:
     number: GPIO2
     inverted: true
 
+# I2C bus definition
+i2c:
+  scl: GPIO22
+  sda: GPIO21
+  scan: true
+
 sensor:
-  - platform: dht
-    pin: GPIO23
-    model: AM2302
+  - platform: aht10
+    variant: AHT20
+    id: climate_sensor
     temperature:
       name: "Temperature"
+      id: temperature_sensor
     humidity:
       name: "Humidity"
-      accuracy_decimals: 1
+      id: humidity_sensor
     update_interval: 60s
 
   # Extra sensor to keep track of plug uptime
