@@ -1,0 +1,142 @@
+substitutions:
+  device_id: controller-dog-house
+  device_name: Controller Dog House
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+
+esp8266:
+  board: esp01_1m
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  #encryption:
+  #  key: !secret api_encryption
+  password: !secret api_password
+
+ota:
+  - password: ""
+    platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+sensor:
+
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # Extra sensor for WiFi signal
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+########################
+# Hardware Setup
+########################
+
+status_led:
+  pin:
+    number: GPIO13
+    inverted: true
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "Gate Button"
+    on_press:
+      then:
+        - switch.toggle: id_gate_relay
+
+  - platform: gpio
+    pin:
+      number: GPIO9
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "Feeder Button"
+    on_press:
+      then:
+        - switch.toggle: id_feeder_relay
+
+  - platform: gpio
+    pin:
+      number: GPIO10
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "Light Button"
+    on_press:
+      then:
+        - light.toggle: id_light
+
+  - platform: gpio
+    pin:
+      number: GPIO14
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "Heat Button"
+    on_press:
+      then:
+        - switch.toggle: id_heat_relay
+
+  - platform: status
+    name: "Status"
+
+switch:
+  - platform: gpio
+    pin: GPIO12
+    name: "Gate Relay"
+    id: id_gate_relay
+
+    on_turn_on:
+      - delay: 2s
+      - switch.turn_off: id_gate_relay
+
+  - platform: gpio
+    pin: GPIO5
+    name: "Feeder Relay"
+    id: id_feeder_relay
+
+  - platform: gpio
+    pin: GPIO15
+    name: "Heat Relay"
+    id: id_heat_relay
+
+output:
+  - platform: gpio
+    pin: GPIO4
+    id: id_light_relay
+
+light:
+  - platform: binary
+    name: "Light"
+    output: id_light_relay
+    id: id_light

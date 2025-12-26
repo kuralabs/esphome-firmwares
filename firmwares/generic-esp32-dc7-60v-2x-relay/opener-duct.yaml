@@ -3,8 +3,8 @@
 ########################
 
 substitutions:
-  device_id: duct-opener
-  device_name: Duct Opener
+  device_id: opener-duct
+  device_name: Opener Duct
 
 esphome:
   name: "${device_id}"
@@ -27,7 +27,9 @@ logger:
 
 # Enable Home Assistant API
 api:
-  password: ""
+  #encryption:
+  #  key: !secret api_encryption
+  password: !secret api_password
 
 ota:
   - platform: esphome

@@ -4,7 +4,7 @@
 
 substitutions:
   device_id: blind-spider
-  device_name: Spider Blind
+  device_name: Blind Spider
   button_bounce: 100ms
 
 esphome:
@@ -25,7 +25,9 @@ logger:
 
 # Enable Home Assistant API
 api:
-  password: ""
+  #encryption:
+  #  key: !secret api_encryption
+  password: !secret api_password
 
 ota:
   - password: ""

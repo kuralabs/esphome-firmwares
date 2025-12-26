@@ -1,6 +1,6 @@
 substitutions:
-  device_id: pergola-relay-controller
-  device_name: Pergola Relay Controller
+  device_id: "controller-club"
+  device_name: Controller Club
 
 esphome:
   name: "${device_id}"
@@ -18,7 +18,9 @@ logger:
 
 # Enable Home Assistant API
 api:
-  password: ""
+  #encryption:
+  #  key: !secret api_encryption
+  password: !secret api_password
 
 ota:
   - password: ""
@@ -73,7 +75,7 @@ binary_sensor:
     name: "Button 1"
     on_press:
       then:
-        - light.toggle: id_backyard_lights
+        - switch.toggle: id_relay_1
 
   - platform: gpio
     pin:
@@ -110,9 +112,18 @@ binary_sensor:
 
 switch:
   - platform: gpio
+    pin: GPIO12
+    name: "Relay 1"
+    id: id_relay_1
+
+  - platform: gpio
     pin: GPIO5
     name: "Relay 2"
     id: id_relay_2
+
+    on_turn_on:
+    - delay: 1s
+    - switch.turn_off: id_relay_2
 
   - platform: gpio
     pin: GPIO4
@@ -123,14 +134,3 @@ switch:
     pin: GPIO15
     name: "Relay 4"
     id: id_relay_4
-
-output:
-  - platform: gpio
-    pin: GPIO12
-    id: id_relay_1
-
-light:
-  - platform: binary
-    name: "Backyard Lights"
-    output: id_relay_1
-    id: id_backyard_lights

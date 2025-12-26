@@ -3,8 +3,8 @@
 ########################
 
 substitutions:
-  device_id: "plug-cameras-monitor"
-  device_name: Plug Cameras Monitor
+  device_id: controller-heat-panel
+  device_name: Controller Heat Panel
   update_interval: 60s
 
 esphome:
@@ -18,20 +18,15 @@ esp8266:
 # Software Stack Setup
 ########################
 
-# Enable logging
-logger:
-  baud_rate: 0 # UART logging interferes with cse7766
-
 # Enable Home Assistant API
 api:
-  reboot_timeout: 15min
   #encryption:
   #  key: !secret api_encryption
   password: !secret api_password
 
 ota:
-  - password: ""
-    platform: esphome
+  - platform: esphome
+    password: ""
 
 wifi:
   ssid: !secret wifi_ssid
@@ -49,7 +44,6 @@ text_sensor:
     ip_address:
       name: "IP Address"
 
-
 ########################
 # Hardware Setup
 ########################
@@ -65,6 +59,9 @@ status_led:
 # - This precludes logging via serial, so disable that.
 # - The CSE7766 emits data more frequently than desired, which in turn would be
 #   passed on by esphome; use a filter to slow down updates
+
+logger:
+  baud_rate: 0
 
 uart:
   rx_pin: RX
@@ -110,7 +107,6 @@ sensor:
     update_interval: 60s
 
 binary_sensor:
-
   - platform: gpio
     pin:
       number: GPIO0
@@ -125,6 +121,7 @@ switch:
   - platform: gpio
     name: "Relay"
     pin: GPIO12
+    inverted: true
     id: relay
     restore_mode: ALWAYS_OFF
 
