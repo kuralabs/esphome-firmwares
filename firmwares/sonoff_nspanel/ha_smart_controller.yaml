@@ -1,0 +1,27 @@
+substitutions:
+  device_name: "panel-bedroom-south"
+  friendly_name: "Panel Bedroom South"
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  nextion_update_url: "https://home.hq.kuralabs.io/local/nspanel.tft"
+  boot_sound: false
+  upload_tft_automatically: false
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption
+
+# Enable Over-The-Air Updates
+ota:
+  - id: !extend ota_std
+    password: !secret ota_password
+
+# NSPanel Configuration
+packages:
+  remote_package:
+    url: https://github.com/Blackymas/NSPanel_HA_Blueprint
+    ref: main
+    refresh: 300s
+    files:
+      - nspanel_esphome.yaml
