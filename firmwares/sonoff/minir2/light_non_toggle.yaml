@@ -94,7 +94,7 @@ binary_sensor:
         - light.toggle:
             id: id_light
 
-  # Toggles the main relay on switch toggle
+  # Turn on/off the main relay on switch on/off
   - platform: gpio
     pin: GPIO04
     id: id_switch
