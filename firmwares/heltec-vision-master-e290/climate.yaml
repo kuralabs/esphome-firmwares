@@ -36,12 +36,13 @@ logger:
 
 # Enable Home Assistant API
 api:
-  reboot_timeout: 15min
-  password: ""
+  encryption:
+    key: !secret api_encryption
 
+# Enable Over-The-Air Updates
 ota:
-  - password: ""
-    platform: esphome
+  - platform: esphome
+    password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid

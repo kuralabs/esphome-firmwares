@@ -51,11 +51,13 @@ logger:
 
 # Enable Home Assistant API
 api:
-  password: ""
+  encryption:
+    key: !secret api_encryption
 
+# Enable Over-The-Air Updates
 ota:
   - platform: esphome
-    password: ""
+    password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid
