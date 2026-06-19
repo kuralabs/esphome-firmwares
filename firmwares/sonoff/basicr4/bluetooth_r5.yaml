@@ -1,0 +1,246 @@
+###########################################
+# Firmware to listen to Sonoff SwitchMan R5
+###########################################
+#
+# MAC Address : 66:55:44:33:22:11
+# Device ID   : 0x5a913fca
+#
+# Physical button layout:
+#
+#  .----------------------------.
+#  |  btn 1  |  btn 2  |  btn 3 |
+#  |---------|---------|--------|
+#  |  btn 6  |  btn 5  |  btn 4 |
+#  '----------------------------'
+#
+# Actions per button: short | double | long
+#
+
+########################
+# Device Setup
+########################
+
+substitutions:
+  device_id: opener-curtains
+  device_name: Opener Curtains
+  r5_mac_address: "66:55:44:33:22:11"
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+
+  platformio_options:
+    board_build.mcu: esp32c3
+    board_build.variant: esp32c3
+
+esp32:
+  variant: esp32c3
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_BT_BLE_50_FEATURES_SUPPORTED: y
+      CONFIG_BT_BLE_42_FEATURES_SUPPORTED: y
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "10"
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption
+  homeassistant_services: true
+
+# Enable Over-The-Air Updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Enable WiFi
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+sensor:
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # Extra sensor for WiFi signal
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+########################
+# Hardware Setup
+########################
+
+status_led:
+  pin:
+    number: GPIO6
+    inverted: true
+
+binary_sensor:
+  - platform: gpio
+    id: id_reset
+    pin:
+      number: GPIO9
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    on_press:
+      then:
+        - switch.toggle: id_relay
+
+  # Stops BLE scanning while WiFi/API is not connected
+  - platform: template
+    id: id_scan_enabled
+    internal: true
+    entity_category: diagnostic
+    device_class: connectivity
+    lambda: !lambda |-
+      return global_api_server->is_connected();
+    on_press:
+      - esp32_ble_tracker.start_scan:
+          continuous: true
+    on_release:
+      - esp32_ble_tracker.stop_scan:
+
+switch:
+  - platform: gpio
+    name: "Relay"
+    id: id_relay
+    pin:
+      number: GPIO4
+    restore_mode: ALWAYS_OFF
+
+########################
+# Sonoff R5 BLE
+########################
+
+globals:
+  - id: btdata_uuid4
+    type: std::vector<uint32_t>
+    restore_value: no
+    # Button press UUID lookup table (6 buttons × 3 actions = 18 entries)
+    # Order: button 1 short/double/long, button 2 short/double/long, ...
+    # Values may vary by R5 hardware version
+    initial_value: '{0x8A6BECDA, 0xD535B385, 0x1FFC794F, 0xE60781B6, 0x2FCF487F,
+                     0xD734B087, 0x02E36652, 0xEB0B8FBB, 0x32D15662, 0xFA1B99AA,
+                     0x9575F6C5, 0x9F7CFCCF, 0x29C84B79, 0xBF5FDDEF, 0xA043C2F0,
+                     0xBF5EDAEF, 0xA141C4F1, 0x9D7EF8CD}'
+
+  - id: button_actions
+    type: std::vector<std::string>
+    restore_value: no
+    initial_value: '{"short", "double", "long"}'
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 150ms
+    window: 150ms
+    active: true
+    continuous: true
+
+  on_ble_advertise:
+    - mac_address: "${r5_mac_address}"
+      then:
+        - lambda: |-
+            // Persistent store of the last seen service UUID list.
+            // Used to detect duplicate advertisements from the same button press burst.
+            static std::vector<esphome::esp32_ble::ESPBTUUID> btdata_store;
+
+            // Retrieve the list of service UUIDs broadcast in this advertisement.
+            // The R5 encodes button identity and action type across several UUID slots.
+            auto btdata = x.get_service_uuids();
+
+            // Uncomment for debug, too noisy
+            //ESP_LOGD("Sonoff", "data received");
+
+            // Sanity checks before processing:
+            // - At least 6 service UUIDs must be present (the R5 always sends 6+)
+            // - UUID at slot [1] must contain the fixed Sonoff marker bytes 0x78/0xF6,
+            //   which identifies this as a genuine R5 advertisement vs. other BLE noise
+            if (btdata.size() >= 6 && btdata[1].contains(0x78, 0xF6)) {
+
+              // Print the MAC Address
+              // Uncomment to discover MAC address of devices
+              // ESP_LOGI("Sonoff", "MAC: %s", x.address_str().c_str());
+
+              // Deduplicate: the R5 fires the same advertisement packet multiple times
+              // in a burst for each button press. Skip if identical to the last one seen.
+              if (btdata_store == btdata) {
+                ESP_LOGD("Sonoff", "---- duplicate");
+              } else {
+                // New unique advertisement — update the store for next comparison
+                btdata_store = btdata;
+
+                // Reconstruct the device identifier by splicing bytes from UUID slots
+                // [2] and [3]. The high byte comes from [2], the lower 3 bytes from [3].
+                // This gives a stable per-device ID across button presses.
+                uint32_t btdevice = (btdata[2].get_uuid().uuid.uuid32 & 0xff000000) |
+                                    (btdata[3].get_uuid().uuid.uuid32 & 0x00ffffff);
+
+                // UUID slot [4] is the payload that encodes which button was pressed
+                // and with what action (short/double/long).
+                uint32_t uuid4u32 = (btdata[4].get_uuid().uuid.uuid32);
+                ESP_LOGD("Sonoff", "0x%x : 0x%x", btdevice, uuid4u32);
+
+                // Walk the lookup table of known UUID values (18 entries: 6 buttons × 3 actions).
+                // The match uses an XOR-based comparison rather than direct equality to tolerate
+                // minor bit-level variation between R5 hardware revisions.
+                for (size_t i = 0; i < id(btdata_uuid4).size(); i++) {
+                  uint32_t stored_value = id(btdata_uuid4)[i];
+
+                  // XOR each byte pair of the received vs. stored UUID and check that
+                  // the high byte XOR equals the next byte XOR, and same for the low pair.
+                  // This is essentially a symmetric difference check across byte lanes.
+                  if ((((uuid4u32 >> 24) ^ (stored_value >> 24)) == ((uuid4u32 >> 16 & 0xff) ^ (stored_value >> 16 & 0xff))) &&
+                      (((uuid4u32 >> 8 & 0xff) ^ (stored_value >> 8 & 0xff)) == ((uuid4u32 & 0xff) ^ (stored_value & 0xff)))) {
+
+                    // Derive button number and action from the table index.
+                    // Entries are grouped as: [short, double, long] per button,
+                    // so button = index/3 + 1 and action = index%3.
+                    int button_number = i / 3 + 1;
+                    int button_action = i % 3;
+
+                    // Fire a Home Assistant event with all relevant fields.
+                    // Subscribe in HA via Developer Tools → Events → esphome.sonoff_ble
+                    esphome::api::CustomAPIDevice capi;
+                    capi.fire_homeassistant_event("esphome.sonoff_ble",
+                      {{"device", format_hex(btdevice)},
+                      {"button", to_string(button_number)},
+                      {"action", id(button_actions)[button_action].c_str()},
+                      {"service", format_hex(uuid4u32)}}
+                    );
+                    ESP_LOGI("Sonoff", "0x%x : %i : %s", btdevice, button_number,
+                            id(button_actions)[button_action].c_str());
+
+                    // Stop after the first match — each advertisement maps to exactly
+                    // one button/action combination.
+                    return;
+                  }
+                }
+              }
+            }
