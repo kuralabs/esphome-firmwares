@@ -1,0 +1,434 @@
+substitutions:
+  device_id: "controller-shed"
+  device_name: Controller Shed
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+  on_boot:
+    then:
+      - pcf85063.read_time
+
+# Waveshare ESP32-S3-ETH-8DI-8RO uses ESP32-S3-WROOM-1U-N16R8
+# -> 16 MB flash
+# -> 8 MB psram
+esp32:
+  board: esp32s3box
+  flash_size: 16MB
+  framework:
+    type: arduino
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption
+
+  # Ability to command the buzzer from Home Assistant
+  actions:
+    - action: rtttl_play
+      variables:
+        song_str: string
+      then:
+        - rtttl.play:
+            rtttl: !lambda 'return song_str;'
+
+# Enable Over-The-Air Updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# wifi:
+#   ssid: !secret wifi_ssid
+#   password: !secret wifi_password
+#
+#   # Enable fallback hotspot (captive portal) in case wifi connection fails
+#   ap:
+#     ssid: ${device_name} Hotspot
+#     password: !secret wifi_fallback_password
+#
+# captive_portal:
+#
+# text_sensor:
+#   - platform: wifi_info
+#     ip_address:
+#       name: "IP Address"
+
+# Ethernet configuration - mutually exclusive with WiFi!
+ethernet:
+  type: W5500
+  clk_pin: GPIO15
+  mosi_pin: GPIO13
+  miso_pin: GPIO14
+  cs_pin: GPIO16
+  interrupt_pin: GPIO12
+
+text_sensor:
+  - platform: ethernet_info
+    ip_address:
+      name: "IP Address"
+      address_0:
+        name: "IP Address 0"
+      address_1:
+        name: "IP Address 1"
+      address_2:
+        name: "IP Address 2"
+      address_3:
+        name: "IP Address 3"
+      address_4:
+        name: "IP Address 4"
+    dns_address:
+      name: "DNS Address"
+    mac_address:
+      name: "MAC Address"
+
+sensor:
+
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # # Extra sensor for WiFi signal
+  # - platform: wifi_signal
+  #   name: "WiFi Signal"
+  #   update_interval: 60s
+
+########################
+# Hardware Setup
+########################
+
+# I2C bus
+i2c:
+  sda: GPIO42
+  scl: GPIO41
+  scan: false
+  frequency: 100kHz
+  id: id_i2c
+
+# IO id_Multiplexer
+pca9554:
+  - id: id_multiplexer
+    address: 0x20
+
+# RS485 / Modbus
+uart:
+  - id: id_modbus_uart
+    tx_pin: GPIO17
+    rx_pin: GPIO18
+    baud_rate: 38400
+    stop_bits: 1  # default to 8E1
+    data_bits: 8  # default to 8E1
+    parity: EVEN  # default to 8E1
+
+# RTC / Time
+time:
+  - platform: pcf85063
+    id: id_time_rtc
+
+  - platform: homeassistant
+    id: id_time_ha
+    on_time_sync:
+      then:
+        # Update the RTC when the synchronization was successful
+        pcf85063.write_time:
+
+binary_sensor:
+  - platform: gpio
+    name: "Boot Button"
+    pin:
+      number: 0
+      ignore_strapping_warning: true
+      mode:
+        input: true
+      inverted: true
+    disabled_by_default: true
+    on_press:
+      then:
+        - button.press: id_button_restart
+
+  # Digital Inputs
+  - platform: gpio
+    id: id_di1
+    name: "Button Indoor Light"
+    pin:
+      number: GPIO4
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+    on_state:
+      then:
+        - light.toggle: id_light_indoor
+
+  - platform: gpio
+    id: id_di2
+    name: "Digital Input 2"
+    internal: true
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+
+  - platform: gpio
+    id: id_di3
+    name: "Digital Input 3"
+    internal: true
+    pin:
+      number: GPIO6
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+
+  - platform: gpio
+    id: id_di4
+    name: "Digital Input 4"
+    internal: true
+    pin:
+      number: GPIO7
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+
+  - platform: gpio
+    id: id_di5
+    name: "Digital Input 5"
+    internal: true
+    pin:
+      number: GPIO8
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+
+  - platform: gpio
+    id: id_di6
+    name: "Digital Input 6"
+    internal: true
+    pin:
+      number: GPIO9
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+
+  - platform: gpio
+    id: id_di7
+    name: "Digital Input 7"
+    internal: true
+    pin:
+      number: GPIO10
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+
+  - platform: gpio
+    id: id_di8
+    name: "Digital Input 8"
+    internal: true
+    pin:
+      number: GPIO11
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+
+# RGB LED
+light:
+  - platform: esp32_rmt_led_strip
+    rgb_order: RGB
+    chipset: WS2812
+    pin: GPIO38
+    num_leds: 1
+    name: "RGB LED"
+    id: id_status_led_light
+
+  - platform: status_led
+    output: id_status_led_output
+    id: id_status_led
+    internal: true
+
+  - platform: binary
+    name: "Light Indoor"
+    output: id_relay_light_indoor
+    id: id_light_indoor
+
+  - platform: binary
+    name: "Light Outdoor"
+    output: id_relay_light_outdoor
+    id: id_light_outdoor
+
+output:
+  - platform: gpio
+    id: id_relay_light_indoor
+    pin:
+      pca9554: id_multiplexer
+      number: 5
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    id: id_relay_light_outdoor
+    pin:
+      pca9554: id_multiplexer
+      number: 6
+      mode:
+        output: true
+      inverted: false
+
+  - platform: template
+    id: id_status_led_output
+    type: binary
+    write_action:
+      - if:
+          condition:
+            lambda: return state > 0;
+          then:
+            - light.turn_on:
+                id: id_status_led_light
+                red: 1.0
+                green: 0.0
+                blue: 0.0
+                brightness: 15%
+          else:
+            - light.turn_on:
+                id: id_status_led_light
+                red: 0.0
+                green: 1.0
+                blue: 0.0
+                brightness: 15%
+
+  - platform: ledc
+    pin:
+      number: GPIO46
+      ignore_strapping_warning: true
+    id: id_buzzer
+
+# Buzzer
+rtttl:
+  output: id_buzzer
+  id: id_rtttl_buzzer
+  gain: 30%
+
+# Relays
+switch:
+  - platform: gpio
+    name: "Shutter Down"
+    id: id_relay_shutter_down
+    internal: true
+    pin:
+      pca9554: id_multiplexer
+      number: 0
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "Shutter Stop"
+    id: id_relay_shutter_stop
+    internal: true
+    pin:
+      pca9554: id_multiplexer
+      number: 1
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "Shutter Up"
+    id: id_relay_shutter_up
+    internal: true
+    pin:
+      pca9554: id_multiplexer
+      number: 2
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "Door Opener"
+    id: id_relay_door
+    restore_mode: ALWAYS_OFF
+    pin:
+      pca9554: id_multiplexer
+      number: 3
+      mode:
+        output: true
+      inverted: false
+    on_turn_on:
+    - delay: 1s
+    - switch.turn_off: id_relay_door
+
+  - platform: gpio
+    name: "Relay 5"
+    id: id_relay_5
+    internal: true
+    pin:
+      pca9554: id_multiplexer
+      number: 4
+      mode:
+        output: true
+      inverted: false
+
+  - platform: gpio
+    name: "Alarm"
+    id: id_relay_alarm
+    pin:
+      pca9554: id_multiplexer
+      number: 7
+      mode:
+        output: true
+      inverted: false
+
+# Virtual buttons
+button:
+  - platform: restart
+    name: "Restart"
+    id: id_button_restart
+    entity_category: config
+
+# Shutter
+cover:
+  - platform: template
+    name: "Shutter"
+    id: id_shutter
+    device_class: shutter
+    assumed_state: true
+    optimistic: true
+    open_action:
+      - switch.turn_off: id_relay_shutter_down
+      - switch.turn_off: id_relay_shutter_stop
+      - switch.turn_on: id_relay_shutter_up
+      - delay: 500ms
+      - switch.turn_off: id_relay_shutter_up
+    close_action:
+      - switch.turn_off: id_relay_shutter_up
+      - switch.turn_off: id_relay_shutter_stop
+      - switch.turn_on: id_relay_shutter_down
+      - delay: 500ms
+      - switch.turn_off: id_relay_shutter_down
+    stop_action:
+      - switch.turn_off: id_relay_shutter_up
+      - switch.turn_off: id_relay_shutter_down
+      - switch.turn_on: id_relay_shutter_stop
+      - delay: 500ms
+      - switch.turn_off: id_relay_shutter_stop
