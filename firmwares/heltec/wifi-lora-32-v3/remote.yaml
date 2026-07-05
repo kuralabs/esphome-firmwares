@@ -1,0 +1,168 @@
+# Pinout - Meshnology N30 / Heltec WiFi LoRa 32 V3
+# ------------------------------------------------
+# Function                        | GPIO
+# ------------------------------------------------
+# SX1262 SPI CLK                  | 9
+# SX1262 SPI MOSI                 | 10
+# SX1262 SPI MISO                 | 11
+# SX1262 CS                       | 8
+# SX1262 RST                      | 12
+# SX1262 BUSY                     | 13
+# SX1262 DIO1                     | 14
+# OLED SDA                        | 17
+# OLED SCL                        | 18
+# OLED RST                        | 21
+# User (PRG) button               | 0
+# Vext power control (active LOW) | 36
+
+########################
+# Device Setup
+########################
+
+substitutions:
+  device_id: remote-gates-1
+  device_name: Remote Gates 1
+
+esphome:
+  name: "${device_id}"
+  friendly_name: "${device_name}"
+
+esp32:
+  variant: esp32s3
+  flash_size: 8MB
+  cpu_frequency: 240MHZ
+  framework:
+    type: esp-idf
+
+########################
+# Software Stack Setup
+########################
+
+# Enable logging
+logger:
+  hardware_uart: UART0
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption
+  homeassistant_services: true
+
+# Enable Over-The-Air Updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Enable WiFi
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name} Hotspot
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+sensor:
+  # Extra sensor to keep track of plug uptime
+  - platform: uptime
+    name: "Uptime"
+    filters:
+      - lambda: return x / 3600;
+    unit_of_measurement: "h"
+    accuracy_decimals: 2
+
+  # Extra sensor for WiFi signal
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+########################
+# Hardware Setup
+########################
+
+# --- Buses ---
+
+# SPI bus used by the SX1262 LoRa radio
+spi:
+  clk_pin: GPIO9
+  mosi_pin: GPIO10
+  miso_pin: GPIO11
+
+# I2C bus used by the OLED
+i2c:
+  sda: GPIO17
+  scl: GPIO18
+  frequency: 400kHz
+
+# --- Power ---
+
+# The OLED (and other onboard peripherals) are powered through Vext.
+# GPIO36 must be pulled LOW to enable power to them.
+switch:
+  - platform: gpio
+    pin: GPIO36
+    id: vext
+    name: "Vext Power"
+    inverted: true
+    restore_mode: ALWAYS_ON
+
+# --- LoRa radio (SX1262) ---
+sx126x:
+  cs_pin: GPIO8
+  rst_pin: GPIO12
+  busy_pin: GPIO13
+  dio1_pin: GPIO14
+  hw_version: sx1262
+  rf_switch: true
+  frequency: 915000000        # Costa Rica ISM band assumption - adjust if needed
+  bandwidth: 125_0kHz
+  modulation: LORA
+  spreading_factor: 7
+  coding_rate: CR_4_6
+  sync_value: [0x14, 0x24]
+  preamble_size: 8
+  crc_enable: true
+  rx_start: true
+  tcxo_voltage: 1_8V
+  tcxo_delay: 5ms
+  on_packet:
+    then:
+      - lambda: |-
+          ESP_LOGD("lora", "RX RSSI: %.1f dBm  SNR: %.1f dB  Data: %s",
+                   rssi, snr, format_hex(x).c_str());
+
+# --- User (PRG) button ---
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "User Button"
+    filters:
+      - delayed_on_off: 20ms   # basic debounce
+
+# --- OLED Display ---
+font:
+  - file: "gfonts://Roboto"
+    id: font1
+    size: 14
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    reset_pin: GPIO21
+    address: 0x3C
+    update_interval: 5s
+    lambda: |-
+      it.printf(0, 0, id(font1), "Meshnology N30");
+      it.printf(0, 20, id(font1), "WiFi: %s", id(wifi_signal_db).state ? "OK" : "...");
+      it.printf(0, 40, id(font1), "%.0f dBm", id(wifi_signal_db).state);
