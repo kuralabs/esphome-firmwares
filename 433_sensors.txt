@@ -1,0 +1,96 @@
+EV1527 coding format:
+
+The EV1527 433 MHz RF coding format uses a 24-bit pulse-width modulation (PWM)
+frame composed of a 20-bit unique address and a 4-bit data payload
+
+Frame Structure:
+
+- Preamble (Sync): A short high pulse of 1 time period (T) followed by a long
+  low period of 31 time periods (31T).
+- Address Bits (20-bit): A unique ID number hardcoded or assigned to the
+  transmitter chip.
+- Data Bits (4-bit): Represents the button or channel state being triggered.
+
+Bit Encoding (PWM Timing):
+
+- Logic '0': High pulse for 1T, low pulse for 3T.
+- Logic '1': High pulse for 3T, low pulse for 1T.
+- Base Time Period (T): Typically around 300μs to 400μs (total pulse duration
+  per bit is 4T, roughly 1200μs to 1600μs).
+
+To read 1527-encoded messages using an ESP32-WROOM and a CC1101 transceiver,
+you must configure the CC1101 to ASK/OOK modulation at 433.92 MHz and route
+the raw demodulated data stream to an ESP32 GPIO pin for software decoding.
+
+The CC1101 handles the radio frequency tuning, while the ESP32 decodes the
+1527 bit timings (1T/3T pulses) in software.
+
+esphome:
+  name: esp32-433-receiver
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# 1. Initialize the SPI bus for CC1101 communication
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+# 2. Configure the CC1101 Radio Module
+# This tells ESPHome to put the chip into 433.92MHz ASK/OOK receiver mode
+cc1101:
+  id: my_cc1101
+  cs_pin: GPIO5
+
+# 3. Configure the ESP32 to monitor raw incoming pulses from GDO0
+remote_receiver:
+  pin: 
+    number: GPIO4
+    mode: INPUT
+  # Dump raw data to the log initially to help you troubleshoot your timings
+  dump: rc_switch 
+  # Increase tolerance if you are getting missed packets or experiencing RF noise
+  tolerance: 50%
+
+# 4. Filter and process the EV1527 payloads into Home Assistant entities
+binary_sensor:
+  - platform: remote_receiver
+    name: "433MHz Sensor Button A"
+    # EV1527 uses 'rc_switch' protocol type 1 under the hood
+    rc_switch_raw:
+      code: "000101010101010101010001" # Your exact 24-bit binary code (Address + Data)
+      protocol: 1
+    filters:
+      - delayed_off: 2s # Auto-reset the sensor state after 2 seconds
+
+  - platform: remote_receiver
+    name: "433MHz Sensor Button B"
+    rc_switch_raw:
+      code: "000101010101010101010010" # Example of a second button/channel
+      protocol: 1
+    filters:
+      - delayed_off: 2s
+
+How to Find Your Sensor's Code:
+
+Because you are setting up new hardware, you likely do not know the exact
+24-bit binary values of your sensors yet. Follow these steps to find them:
+
+1) Flash your ESP32 with the YAML above (leave the placeholder code lines as 
+   they are).
+2) Open the ESPHome Web Log Dashboard or view the logs via the command line 
+   (esphome logs your_config.yaml).
+3) Press the button on your 433MHz sensor or trigger the device.
+4) Watch for lines in the logs that look like this:
+
+[I][remote.rc_switch:250]: Received RC Switch code: 
+[I][remote.rc_switch:251]:   Code: 000101010101010101010001 (24 bits)
+[I][remote.rc_switch:252]:   Protocol: 1
+
+5) Copy that 24-bit string directly out of your logs and replace the
+   placeholder code values in your YAML configuration. Re-flash the ESP32,
+   and your sensors will instantly show up as interactive binary sensors in
+   Home Assistant.
