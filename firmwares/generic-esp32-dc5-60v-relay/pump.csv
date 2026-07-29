@@ -1,0 +1,22 @@
+Power,,,,,,
+Label,Purpose,Color,Notes,,,
+GND,System Ground,Black,,,,
+VCC,System Power Input +24VDC,Red,,,,
+DGND,System Digital Ground,-,Unused,,,
+VDD,System Digital Power +3.3VDC (Internal regulator),Yellow,Connect to status LEDs common anode,,,
+,,,,,,
+Relay,,,,,,
+Label,Purpose,Wire,,,,
+NC,Not connected,-,,,,
+COM,+24VDC Pump Contactor Coil Power Supply,Red,,,,
+NO,Pump Contactor Coil,Blue,,,,
+,,,,,,
+IO,,,,,,
+Label,Purpose,Mode,Pullup,GPIO,Color,Notes
+S1,Float Sensor Full,Input,Internal Pullup,GPIO4,White (TSJ),This will be pulled low when the float is in the full position.
+S2,Float Sensor Empty,Input,Internal Pullup,GPIO26,Green (TSJ),This will be pulled low when the float is in the empty position.
+M1,ON Mode Selector,Input,Internal Pullup,GPIO14,Green,This will be pulled low when the mode selector is on the ON position.
+M2,AUTO Mode Selector,Input,Internal Pullup,GPIO13,White,This will be pulled low when the mode selector is on the AUTO position.
+T1,Thermal Overload Relay OK,Input,Internal Pullup,GPIO17,Green,Connected to the thermal overload relay auxiliary NC contact through a 1KOhm resistor in series for ground path detection of a green status led
+T2,Thermal Overload Relay Fault,Input,Internal Pullup,GPIO18,White,Connected to the thermal overload relay auxiliary NO contact through a 1KOhm resistor in series for ground path detection of a red status led
+R1,Pump Relay Control,Output,External pulldown,GPIO16,-,This will be pulled high to energize the pump contactor coil
