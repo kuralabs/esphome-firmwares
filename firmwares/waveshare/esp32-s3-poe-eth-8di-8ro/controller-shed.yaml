@@ -399,21 +399,23 @@ switch:
         output: true
       inverted: false
 
-# Virtual buttons
-button:
-  - platform: restart
-    name: "Restart"
-    id: id_button_restart
-    entity_category: config
-
 # Shutter
+#   Relays are momentary pulses into the shutter controller (UP / DOWN / STOP).
+#   time_based estimates position from travel time, so HA gets a real
+#   position slider instead of just open/closed.
 cover:
-  - platform: template
+  - platform: time_based
     name: "Shutter"
     id: id_shutter
     device_class: shutter
-    assumed_state: true
-    optimistic: true
+
+    # Measured travel times (full open <-> full closed)
+    open_duration: 44s
+    close_duration: 47s
+
+    # Motor has its own limit switches
+    has_built_in_endstop: true
+
     open_action:
       - switch.turn_off: id_relay_shutter_down
       - switch.turn_off: id_relay_shutter_stop
@@ -432,3 +434,20 @@ cover:
       - switch.turn_on: id_relay_shutter_stop
       - delay: 500ms
       - switch.turn_off: id_relay_shutter_stop
+
+# Virtual buttons
+button:
+
+  # Single-button cycle: moving -> stop, idle -> reverse of last direction
+  - platform: template
+    name: "Shutter Cycle"
+    id: id_shutter_cycle
+    icon: mdi:swap-vertical
+    on_press:
+      - cover.toggle: id_shutter
+
+  # Software button to restart the device
+  - platform: restart
+    name: "Restart"
+    id: id_button_restart
+    entity_category: config
