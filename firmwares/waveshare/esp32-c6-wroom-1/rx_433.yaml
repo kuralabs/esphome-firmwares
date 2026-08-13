@@ -1,0 +1,50 @@
+# CC1101 pin  |  Signal          |  ESP32-C6
+# ------------|------------------|----------
+# 5           |  SCK             |  GPIO18
+# 7           |  MISO/GDO1       |  GPIO19
+# 6           |  MOSI            |  GPIO20
+# 4           |  CSN             |  GPIO21
+# 3           |  GDO0 (TX data)  |  GPIO22
+# 8           |  GDO2 (RX data)  |  GPIO23
+# 2           |  VDD             |  3V3
+# 1           |  GND             |  GND
+
+esp32:
+  variant: esp32c6
+  framework:
+    type: esp-idf     # C6 has no Arduino support
+
+spi:
+  id: spi_bus
+  clk_pin: GPIO18
+  miso_pin: GPIO19
+  mosi_pin: GPIO20
+
+cc1101:
+  id: radio
+  cs_pin: GPIO21
+  frequency: 433.92MHz
+  modulation_type: ASK/OOK
+  symbol_rate: 5000
+  output_power: 10
+  filter_bandwidth: 203kHz
+
+remote_transmitter:
+  id: rf_tx
+  pin: GPIO22                # GDO0
+  carrier_duty_percent: 100% # required for RF, no IR carrier
+  on_transmit:
+    then:
+      - cc1101.begin_tx
+  on_complete:
+    then:
+      - cc1101.begin_rx
+
+remote_receiver:
+  id: rf_rx
+  pin: GPIO23                # GDO2
+  dump: all                  # narrow to rc_switch once you see codes
+  tolerance: 50%
+  filter: 150us
+  idle: 4ms
+  buffer_size: 2kb
